@@ -1,0 +1,44 @@
+# Environment variables
+.env
+.env.*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environment
+venv/
+.venv/
+env/
+ENV/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# IDEs
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+
+# Test/cache files
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Generated files
+*.zip
