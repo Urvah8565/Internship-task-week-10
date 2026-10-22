@@ -3,4 +3,5 @@ pandas
 openpyxl
 groq
 python-dotenv
+plotly
 pytest
