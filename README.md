@@ -114,18 +114,6 @@ streamlit run app/app.py
 5. Python and Pandas perform the supported calculations on the dataset.
 6. InsightAI presents the result and, when requested, a visualization.
 
-## Testing
-
-The project uses Pytest for automated tests.
-
-Run the test suite from the project root:
-
-```bash
-pytest
-```
-
-The test results depend on the current test suite and execution environment.
-
 ## Current Scope and Limitations
 
 InsightAI is an MVP focused on tabular data analysis.
@@ -153,4 +141,3 @@ Potential improvements include:
 ## Project Status
 
 InsightAI is an MVP under development. Features and documentation may evolve as the project improves.
-"""
