@@ -1,6 +1,4 @@
-from pathlib import Path
-
-readme = """# InsightAI — AI-Powered Data Analysis Agent
+ """# InsightAI — AI-Powered Data Analysis Agent
 
 InsightAI is an AI-powered data analysis application that enables users to upload datasets, ask questions in natural language, and explore data-driven insights through an interactive dashboard.
 
