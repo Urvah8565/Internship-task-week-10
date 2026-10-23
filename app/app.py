@@ -1,3 +1,4 @@
+
 import os
 import pandas as pd
 import streamlit as st
@@ -206,16 +207,14 @@ if uploaded:
                     key="viz_y"
                 )
 
+               
                 if st.button("Generate Visualization"):
-                    chart_data = (
-                        df.groupby(x_column, dropna=False)[y_column]
-                        .sum()
-                        .reset_index()
-                    )
-
-
                     if chart_type == "Bar Chart":
-                        import plotly.express as px
+                        chart_data = (
+                            df.groupby(x_column, dropna=False)[y_column]
+                            .sum()
+                            .reset_index()
+                        )
 
                         fig = px.bar(
                             chart_data,
@@ -240,156 +239,230 @@ if uploaded:
                         st.plotly_chart(fig, use_container_width=True)
 
                     elif chart_type == "Pie Chart":
+                        required_columns = [x_column,y_column]
 
-                       fig = px.pie(
-                            chart_data,
-                            names=x_column,
-                            values=y_column,
-                            title=f"{y_column} by {x_column}",
-                            template="plotly_dark",
-                            hole=0.4,
-                        )
+                        missing_columns = [
+                            col for col in required_columns
+                            if col not in df.columns
+                        ]
 
-                       fig.update_traces(
-                        textposition="inside",
-                        textinfo="percent",
-                        hovertemplate=(
-                            "<b>%{label}</b><br>"
-                            + y_column
-                            + ": %{value:,.0f}<br>"
-                            + "Share: %{percent}<extra></extra>"
-                        ),
-                        marker=dict(line=dict(color="#0B0F19", width=2)),
-                     )
-
-                       fig.update_layout(
-                        paper_bgcolor="#0B0F19",
-                        plot_bgcolor="#111827",
-                        font_color="#F1F5F9",
-                        title_x=0.02,
-                        showlegend=True,
-                        legend=dict(orientation="v", x=1.02, y=0.5),
-                        margin=dict(l=20, r=140, t=65, b=25),
-                     )
-                       st.plotly_chart(fig,use_container_width=True)
-
-                    
-                elif chart_type == "Line Chart":
-                    chart_data = df[[x_column, y_column]].copy()
-                    chart_data[y_column] = pd.to_numeric(
-                        chart_data[y_column], errors="coerce"
-                    )
-                    chart_data = chart_data.dropna(subset=[x_column, y_column])
-
-                    if chart_data.empty:
-                        st.warning("No valid data is available for this line chart.")
-                    else:
-                        # Detect the type of X-axis column
-                        is_date = (
-                            pd.api.types.is_datetime64_any_dtype(chart_data[x_column])
-                            or any(
-                                word in x_column.lower()
-                                for word in ["date", "datetime", "timestamp"]
+                        if missing_columns:
+                            st.warning(
+                                "Inventory value requires ProductID, "
+                                "QuantityInStock, and UnitCost."
                             )
-                        )
-
-                        is_numeric = pd.api.types.is_numeric_dtype(
-                            chart_data[x_column]
-                        )
-
-                        if is_date:
-                            chart_data[x_column] = pd.to_datetime(
-                                chart_data[x_column], errors="coerce"
-                            )
-                            chart_data = chart_data.dropna(subset=[x_column])
-
-                            if chart_data.empty:
-                                st.warning("No valid dates were found in the X-axis column.")
-                            else:
-                                chart_data = (
-                                    chart_data.groupby(x_column, as_index=False)[y_column]
-                                    .sum()
-                                    .sort_values(x_column)
-                                )
-                                title = f"{y_column} Over Time"
-                                x_title = x_column
-
-                        elif is_numeric:
-                            chart_data[x_column] = pd.to_numeric(
-                                chart_data[x_column], errors="coerce"
-                            )
-                            chart_data = chart_data.dropna(subset=[x_column])
-                            chart_data = (
-                                chart_data.groupby(x_column, as_index=False)[y_column]
-                                .sum()
-                                .sort_values(x_column)
-                            )
-                            title = f"{y_column} by {x_column}"
-                            x_title = x_column
-
                         else:
-                            chart_data = (
-                                chart_data.groupby(x_column, as_index=False)[y_column]
-                                .sum()
-                                .sort_values(x_column)
-                            )
-                            title = f"{y_column} by {x_column}"
-                            x_title = x_column
+                            pie_source = df[required_columns].copy()
 
-                        if not chart_data.empty:
-                            fig = px.line(
-                                chart_data,
-                                x=x_column,
-                                y=y_column,
-                                title=title,
-                                markers=True,
-                                template="plotly_dark",
+                            pie_source = pie_source.dropna(
+                                subset=required_columns
                             )
 
-                            fig.update_traces(
-                                line=dict(color="#60A5FA", width=3),
-                                marker=dict(size=7, color="#93C5FD"),
-                                hovertemplate=(
-                                    "%{x|%b %d, %Y}<br>"
-                                    + y_column
-                                    + ": %{y:,.2f}<extra></extra>"
-                                    if is_date
-                                    else "%{x}<br>"
-                                    + y_column
-                                    + ": %{y:,.2f}<extra></extra>"
-                                ),
+                            pie_source['ChartValue'] = pd.to_numeric(
+                                pie_source[y_column],errors='coerce'
                             )
 
-                            fig.update_layout(
-                                paper_bgcolor="#0B0F19",
-                                plot_bgcolor="#111827",
-                                font_color="#F1F5F9",
-                                title_x=0.02,
-                                margin=dict(l=20, r=20, t=65, b=45),
-                                hovermode="x unified",
+                            aggregation = 'sum' if y_column == 'QuantityInStock' else 'mean'
+
+                            inventory = (
+                                pie_source.groupby(x_column,as_index=False)['ChartValue']
+                                .agg(aggregation)
+                                .sort_values('ChartValue',ascending=False)
+                            )
+
+                            if inventory.empty:
+                                st.warning(
+                                    "No valid inventory data is available."
+                                )
+                            else:
+                                top_10 = inventory.head(10).copy()
+                                other_value = inventory.iloc[10:][
+                                    "ChartValue"
+                                ].sum()
+
+                                if other_value > 0:
+                                    other_row = pd.DataFrame(
+                                        [{
+                                            x_column:'Other',
+                                            "ChartValue": other_value,
+                                        }]
+                                    )
+                                    pie_data = pd.concat(
+                                        [top_10, other_row],
+                                        ignore_index=True,
+                                    )
+                                else:
+                                    pie_data = top_10
+
+                                fig = px.pie(
+                                    pie_data,
+                                    names=x_column,
+                                    values="ChartValue",
+                                    title=f"{y_column} by {x_column} (Top 10 + Other)",
+                                    hole=0.45,
+                                    template="plotly_dark",
+                                )
+
+                                fig.update_traces(
+                                    textinfo="percent",
+                                    hovertemplate=(
+                                        "<b>%{label}</b><br>"
+                                        "Inventory Value: %{value:,.2f}<br>"
+                                        "Share: %{percent}"
+                                        "<extra></extra>"
+                                    ),
+                                    textfont_size=12,
+                                )
+
+                                fig.update_layout(
+                                    paper_bgcolor="#0B0F19",
+                                    plot_bgcolor="#111827",
+                                    font_color="#F1F5F9",
+                                    title_x=0.02,
+                                    margin=dict(
+                                        l=20, r=20, t=65, b=30
+                                    ),
+                                    legend_title_text=x_column,
+                                )
+
+                                st.plotly_chart(
+                                    fig, use_container_width=True
+                                )
+
+                    elif chart_type == "Line Chart":
+                        chart_data = df[[x_column, y_column]].copy()
+
+                        chart_data[y_column] = pd.to_numeric(
+                            chart_data[y_column],
+                            errors="coerce",
+                        )
+                        chart_data = chart_data.dropna(
+                            subset=[x_column, y_column]
+                        )
+
+                        if chart_data.empty:
+                            st.warning(
+                                "No valid data is available for this line chart."
+                            )
+                        else:
+                            is_date = (
+                                pd.api.types.is_datetime64_any_dtype(
+                                    chart_data[x_column]
+                                )
+                                or any(
+                                    word in x_column.lower()
+                                    for word in [
+                                        "date", "datetime", "timestamp"
+                                    ]
+                                )
+                            )
+
+                            is_numeric = pd.api.types.is_numeric_dtype(
+                                chart_data[x_column]
                             )
 
                             if is_date:
-                                fig.update_xaxes(
-                                    tickformat="%b %d",
-                                    tickangle=-35,
-                                    title=x_title,
-                                    showgrid=False,
+                                chart_data[x_column] = pd.to_datetime(
+                                    chart_data[x_column],
+                                    errors="coerce",
+                                )
+                                chart_data = chart_data.dropna(
+                                    subset=[x_column]
+                                )
+                                title = f"{y_column} Over Time"
+
+                            elif is_numeric:
+                                chart_data[x_column] = pd.to_numeric(
+                                    chart_data[x_column],
+                                    errors="coerce",
+                                )
+                                chart_data = chart_data.dropna(
+                                    subset=[x_column]
+                                )
+                                title = f"{y_column} by {x_column}"
+
+                            else:
+                                title = f"{y_column} by {x_column}"
+
+                            if chart_data.empty:
+                                st.warning(
+                                    "No valid X-axis values were found."
                                 )
                             else:
-                                fig.update_xaxes(
-                                    title=x_title,
-                                    tickangle=-35,
-                                    showgrid=False,
+                                chart_data = (
+                                    chart_data.groupby(
+                                        x_column, as_index=False
+                                    )[y_column]
+                                    .sum()
+                                    .sort_values(x_column)
                                 )
 
-                            fig.update_yaxes(
-                                title=y_column,
-                                gridcolor="#253247",
-                                zeroline=False,
-                            )
+                                fig = px.line(
+                                    chart_data,
+                                    x=x_column,
+                                    y=y_column,
+                                    title=title,
+                                    markers=True,
+                                    template="plotly_dark",
+                                )
 
-                            st.plotly_chart(fig, use_container_width=True)
+                                if is_date:
+                                    hover_template = (
+                                        "%{x|%b %d, %Y}<br>"
+                                        + y_column
+                                        + ": %{y:,.2f}<extra></extra>"
+                                    )
+                                else:
+                                    hover_template = (
+                                        "%{x}<br>"
+                                        + y_column
+                                        + ": %{y:,.2f}<extra></extra>"
+                                    )
+
+                                fig.update_traces(
+                                    line=dict(
+                                        color="#60A5FA", width=3
+                                    ),
+                                    marker=dict(
+                                        size=7, color="#93C5FD"
+                                    ),
+                                    hovertemplate=hover_template,
+                                )
+
+                                fig.update_layout(
+                                    paper_bgcolor="#0B0F19",
+                                    plot_bgcolor="#111827",
+                                    font_color="#F1F5F9",
+                                    title_x=0.02,
+                                    margin=dict(
+                                        l=20, r=20, t=65, b=45
+                                    ),
+                                    hovermode="x unified",
+                                )
+
+                                if is_date:
+                                    fig.update_xaxes(
+                                        tickformat="%b %d",
+                                        tickangle=-35,
+                                        title=x_column,
+                                        showgrid=False,
+                                    )
+                                else:
+                                    fig.update_xaxes(
+                                        title=x_column,
+                                        tickangle=-35,
+                                        showgrid=False,
+                                    )
+
+                                fig.update_yaxes(
+                                    title=y_column,
+                                    gridcolor="#253247",
+                                    zeroline=False,
+                                )
+
+                                st.plotly_chart(
+                                    fig, use_container_width=True
+                                )
 
 
 
