@@ -1,4 +1,3 @@
-
 import os
 import pandas as pd
 import streamlit as st
@@ -274,26 +273,75 @@ if uploaded:
                      )
                        st.plotly_chart(fig,use_container_width=True)
 
-                    elif chart_type == "Line Chart":
-                        chart_data = df[[x_column, y_column]].copy()
-                        chart_data[x_column] = pd.to_datetime(
-                            chart_data[x_column], errors="coerce"
+                    
+                elif chart_type == "Line Chart":
+                    chart_data = df[[x_column, y_column]].copy()
+                    chart_data[y_column] = pd.to_numeric(
+                        chart_data[y_column], errors="coerce"
+                    )
+                    chart_data = chart_data.dropna(subset=[x_column, y_column])
+
+                    if chart_data.empty:
+                        st.warning("No valid data is available for this line chart.")
+                    else:
+                        # Detect the type of X-axis column
+                        is_date = (
+                            pd.api.types.is_datetime64_any_dtype(chart_data[x_column])
+                            or any(
+                                word in x_column.lower()
+                                for word in ["date", "datetime", "timestamp"]
+                            )
                         )
 
-                        chart_data = chart_data.dropna(subset=[x_column])
+                        is_numeric = pd.api.types.is_numeric_dtype(
+                            chart_data[x_column]
+                        )
 
-                        if not chart_data.empty:
+                        if is_date:
+                            chart_data[x_column] = pd.to_datetime(
+                                chart_data[x_column], errors="coerce"
+                            )
+                            chart_data = chart_data.dropna(subset=[x_column])
+
+                            if chart_data.empty:
+                                st.warning("No valid dates were found in the X-axis column.")
+                            else:
+                                chart_data = (
+                                    chart_data.groupby(x_column, as_index=False)[y_column]
+                                    .sum()
+                                    .sort_values(x_column)
+                                )
+                                title = f"{y_column} Over Time"
+                                x_title = x_column
+
+                        elif is_numeric:
+                            chart_data[x_column] = pd.to_numeric(
+                                chart_data[x_column], errors="coerce"
+                            )
+                            chart_data = chart_data.dropna(subset=[x_column])
                             chart_data = (
                                 chart_data.groupby(x_column, as_index=False)[y_column]
                                 .sum()
                                 .sort_values(x_column)
                             )
+                            title = f"{y_column} by {x_column}"
+                            x_title = x_column
 
+                        else:
+                            chart_data = (
+                                chart_data.groupby(x_column, as_index=False)[y_column]
+                                .sum()
+                                .sort_values(x_column)
+                            )
+                            title = f"{y_column} by {x_column}"
+                            x_title = x_column
+
+                        if not chart_data.empty:
                             fig = px.line(
                                 chart_data,
                                 x=x_column,
                                 y=y_column,
-                                title=f"{y_column} Over Time",
+                                title=title,
                                 markers=True,
                                 template="plotly_dark",
                             )
@@ -303,6 +351,10 @@ if uploaded:
                                 marker=dict(size=7, color="#93C5FD"),
                                 hovertemplate=(
                                     "%{x|%b %d, %Y}<br>"
+                                    + y_column
+                                    + ": %{y:,.2f}<extra></extra>"
+                                    if is_date
+                                    else "%{x}<br>"
                                     + y_column
                                     + ": %{y:,.2f}<extra></extra>"
                                 ),
@@ -317,12 +369,20 @@ if uploaded:
                                 hovermode="x unified",
                             )
 
-                            fig.update_xaxes(
-                                tickformat="%b %d",
-                                tickangle=-35,
-                                title="Date",
-                                showgrid=False,
-                            )
+                            if is_date:
+                                fig.update_xaxes(
+                                    tickformat="%b %d",
+                                    tickangle=-35,
+                                    title=x_title,
+                                    showgrid=False,
+                                )
+                            else:
+                                fig.update_xaxes(
+                                    title=x_title,
+                                    tickangle=-35,
+                                    showgrid=False,
+                                )
+
                             fig.update_yaxes(
                                 title=y_column,
                                 gridcolor="#253247",
@@ -330,8 +390,7 @@ if uploaded:
                             )
 
                             st.plotly_chart(fig, use_container_width=True)
-                    else:
-                        st.warning("No valid dates were found in the selected X-axis column.")
+
 
 
     except Exception as e:
